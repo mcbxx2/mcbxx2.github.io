@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.min.js"></script>
+<!--<script type = "text/javascript" src = "http://axemclion.github.com/IndexedDBShim/dist/IndexedDBShim.min.js"></script>-->
+<!--<script src="IDBWrapper-1.6.0/idbstore.min.js"></script>-->
+
+<!-- box-shadow--xdp courtesy of http://www.himpfen.com/shadow-effect-bootstrap-components/ -->
+<style>
+	.box-shadow--16dp {
+		box-shadow: 0 16px 24px 2px rgba(0, 0, 0, .14), 0 6px 30px 5px rgba(0, 0, 0, .12), 0 8px 10px -5px rgba(0, 0, 0, .2)
+	}
+	.box-shadow--4dp {
+		box-shadow: 0 4px 5px 0 rgba(0, 0, 0, .14), 0 1px 10px 0 rgba(0, 0, 0, .12), 0 2px 4px -1px rgba(0, 0, 0, .2)
+	}
+	.padded {
+		padding-left: 8px
+	}
+	.shadowText {
+		text-shadow: lightGray 0px 1.5px;
+	}
+	.left-padded {
+		padding-left: 8px
+	}
+	.bi-padded {
+		padding-left: 8px
+		padding-right: 8px
+		margin: 8px
+	}
+	
+</style>
+
+<script>
+	var app = angular.module('todoApp', []);
+	app.controller('todoController', function($scope) {
+		$scope.todos = [];
+		$scope.archive = [];
+		$scope.deleted = [];
+		$scope.counter = 0;
+		$scope.archiveOrActive = "Archive";
+		$scope.toDelete = "Active";
+		$scope.actVal = true;
+		$scope.archVal = false;
+		//$scope.toBeCompleted = '';
+		$scope.deleteDB = function(){
+			deleteDB();
+		};
+		
+		//var todoList = $scope.todos.length;
+		
+		//-------------------
+			
+		//-------------------
+		
+		$(document).ready(function(){
+			//openDB("active");
+			getAllFromDB("todos");
+			getAllFromDB("archive");
+			$scope.$apply();
+		});
+		
+		//-------------------
+		
+		
+		
+		//add an item to the todos list
+		$scope.addToList = function(todoElem){
+			todoElem.status = "active";
+			todoElem.idNum = $scope.counter;
+			$scope.counter += 1;
+			$scope.todos.push(angular.copy(todoElem));
+			document.getElementById("todoAdder").value = "";
+			console.log($scope.todos);
+			testObjectHandshake($scope.todos, "todos");
+		};
+		
+		$scope.setDeleted = function(todoElem){
+			var parentElem = $scope.searchArray(todoElem);
+			var currentId = $scope.searchArrayForId(todoElem);
+			$scope.todos.splice(currentId, 1);
+			parentElem.status = "deleted";
+			$scope.deleted.push(angular.copy(parentElem));
+			testObjectHandshake($scope.todos, "todos");
+		};
+		
+		$scope.setCompleted = function(todoElem){
+			var parentElem = $scope.searchArray(todoElem);
+			parentElem.status = "completed";
+			$("#" + todoElem).css("text-decoration", "line-through");
+			
+		};
+		
+		$scope.searchArray = function(id){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].idNum == id){
+					return $scope.todos[x];
+				}
+			}
+			return -1;
+		};
+		
+		$scope.searchArrayForId = function(id){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].idNum == id){
+					return x;
+				}
+			}
+			return -1;
+		};
+		
+		$scope.archiveCompleted = function(){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].status == "completed"){
+					$scope.archive.push(angular.copy($scope.todos[x]));
+					$scope.todos.splice(x, 1);
+				}
+			}
+			testObjectHandshake($scope.todos, "todos");
+			testObjectHandshake($scope.archive, "archive");
+		};
+		
+		$scope.clearList = function(){
+			if($scope.archiveOrActive == "Archive"){
+				for(var x = 0; x < $scope.todos.length; x++){
+					$scope.deleted.push(angular.copy($scope.todos[x]));
+					$scope.todos.splice(x, 1);
+				}
+			}else if($scope.archiveOrActive == "Active"){
+				for(var x = 0; x < $scope.archive.length; x++){
+					$scope.deleted.push(angular.copy($scope.archive[x]));
+					$scope.archive.splice(x, 1);
+				}
+			}
+			testObjectHandshake($scope.todos, "todos");
+			testObjectHandshake($scope.archive, "archive");
+		};
+		
+		$scope.viewArchive = function(){
+			//switch to archived view
+			if($scope.archiveOrActive == "Archive"){
+				$scope.archiveOrActive = "Active";
+				$scope.toDelete = "Archived";
+				$scope.actVal = false;
+				$scope.archVal = true;
+				//openDB("archive");
+			//switch to active view
+			}else if($scope.archiveOrActive == "Active"){
+				$scope.archiveOrActive = "Archive";
+				$scope.toDelete = "Active";
+				$scope.actVal = true;
+				$scope.archVal = false;
+				//openDB("active");
+			}
+			
+			
+		};
+		$scope.handshake = function(){
+			testObjectHandshake("todos");
+		};
+		//mongo db
+		function testObjectHandshake(array, table){
+			var todoEs = angular.copy(array);
+			console.log(todoEs);
+			$.ajax({
+			  type: "POST",
+			  url: 'mongoScripter.php',
+			  data: {intake : "insert", todoEs : todoEs, table : table},
+			  success: function(data){console.log(data);}
+			});
+		};
+		
+		
+		$scope.mongoGet = function(){
+			getAllFromDB();
+		};
+		function getAllFromDB(tableTo){
+			$.ajax({
+				type: "POST",
+				url: 'mongoScripter.php',
+				data: {intake : "get", table : tableTo},
+				success: function(data){
+					console.log("processing");
+					//console.log(data);
+					var tempArr = [];
+					for(var key in data) {
+						var value = data[key];
+						//console.log(value);
+						for(var key2 in value){
+							var value2 = value[key2];
+						//	console.log(value2);
+							if(value2.body != null){
+								tempArr.push(value2);
+							}
+						}
+					}
+					console.log(tempArr);
+					if(tableTo == "todos"){
+						$scope.todos = tempArr;
+						$scope.$apply();
+					}else{
+						$scope.archive = tempArr;
+						$scope.$apply();
+					}
+				},
+				dataType: "json"
+			});
+		};
+	});
+	
+</script>
+		
+
+<head>
+	<title>Things to do</title>
+</head>
+<body>
+	<div ng-app="todoApp" ng-controller="todoController">
+		<h3 class="pull-left padded shadowText"><b>Things to do</b><small> with AngularJS</small></h3>
+		
+		<!--<input type="button" ng-click="viewArchive()" value={{archiveOrActive}} class="btn btn-default pull-right box-shadow--4dp">
+		<input type="button" ng-click="clearList()" value="Delete everything" class="btn btn-default pull-right box-shadow--4dp">
+		<input type="button" ng-click="archiveCompleted()" value="Archive Completed" class="btn btn-default pull-right box-shadow--4dp">-->
+		<div class="dropdown pull-right">
+			<button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+			Options
+			<span class="caret"></span>
+			</button>
+			<ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+				<li><a href="" ng-click="viewArchive()">View {{archiveOrActive}}</a></li>
+				<li><a href="" ng-click="archiveCompleted()">Archive Completed</a></li>
+				<li role="separator" class="divider"></li>
+				<li><a href="" ng-click="clearList()">Delete {{toDelete}}</a></li>
+				<li role="separator" class="divider"></li>
+				<!--<li><a href="" ng-click="openDB()">Open Database</a></li>
+				<li><a href="" ng-click="addItem()">Insert All Active Records</a></li>-->
+				<li><a href="" ng-click="deleteDB()">Delete All Active Records</a></li>
+				<li><a href="" ng-click="handshake()">Handshake</a></li>
+			</ul>
+		</div>
+		</br></br></br>
+		<hr class="divider">
+		</br></br>
+		<div>
+			<input type="text" id="todoAdder" class="form-control" ng-model="todoElem.body" placeholder="Add a new to-do">
+			</br>
+			<input type="button" value="Add to the list!" class="btn btn-lg btn-primary center-block box-shadow--16dp" ng-click="addToList(todoElem)">
+			</br></br>
+			<div>
+				<p class="lead text-center">------ Your things to do! You have {{todos.length}} items left to complete! -------</p>
+				<div class="todoList">
+					<div ng-show="actVal">
+						<div class="center-block" ng-repeat="todoElems in todos">
+							<a href="" ng-click="setCompleted(todoElems.idNum)" class="glyphicon glyphicon-ok pull-left bi-padded"></a>
+							<a href="" ng-click="setDeleted(todoElems.idNum)" class="glyphicon glyphicon-remove pull-left bi-padded"></a>
+							<h4 id={{todoElems.idNum}} class="pull-left left-padded">{{todoElems.body}}</h4>
+							<br><br>
+						</div>
+					</div>
+					<div ng-show="archVal">
+						<div class="center-block" ng-repeat="archElems in archive">
+							<h4 id={{archElems.idNum}} class="pull-left left-padded">{{archElems.body}}</h4>
+							<br><br>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<hr class="divider">
+		<h4 class="text-center">Created by Mitchell Battles</h4>
+		<p class="text-center">This website uses AngularJS <small><i>by Google</i></small></p>
+	</div>
+</body>
+</html>
