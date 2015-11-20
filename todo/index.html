@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.min.js"></script>
+<!--<script type = "text/javascript" src = "http://axemclion.github.com/IndexedDBShim/dist/IndexedDBShim.min.js"></script>-->
+<!--<script src="IDBWrapper-1.6.0/idbstore.min.js"></script>-->
+
+<!-- box-shadow--xdp courtesy of http://www.himpfen.com/shadow-effect-bootstrap-components/ -->
+<style>
+	.box-shadow--16dp {
+		box-shadow: 0 16px 24px 2px rgba(0, 0, 0, .14), 0 6px 30px 5px rgba(0, 0, 0, .12), 0 8px 10px -5px rgba(0, 0, 0, .2)
+	}
+	.box-shadow--4dp {
+		box-shadow: 0 4px 5px 0 rgba(0, 0, 0, .14), 0 1px 10px 0 rgba(0, 0, 0, .12), 0 2px 4px -1px rgba(0, 0, 0, .2)
+	}
+	.padded {
+		padding-left: 8px
+	}
+	.shadowText {
+		text-shadow: lightGray 0px 1.5px;
+	}
+	.left-padded {
+		padding-left: 8px
+	}
+	.bi-padded {
+		padding-left: 8px
+		padding-right: 8px
+		margin: 8px
+	}
+	
+</style>
+
+<script>
+	var app = angular.module('todoApp', []);
+	app.controller('todoController', function($scope) {
+		$scope.todos = [];
+		$scope.archive = [];
+		$scope.deleted = [];
+		$scope.counter = 0;
+		$scope.archiveOrActive = "Archive";
+		$scope.toDelete = "Active";
+		$scope.actVal = true;
+		$scope.archVal = false;
+		//$scope.toBeCompleted = '';
+		$scope.deleteDB = function(){
+			deleteDB();
+		};
+		
+		//var todoList = $scope.todos.length;
+		
+		//-------------------
+			var dbName = "todos";
+			//var storeName = "active";
+			//var storeName2 = "archive";
+			var db = null;
+			function openDB(storeName){
+				console.log("\n[Open DB]");
+				var request = indexedDB.open(dbName);
+				console.log(request);
+				request.onerror = function(e) {
+					console.log("Error opening " + dbName);
+					//console.dir(e);
+				};
+				request.onsuccess = function(e) {
+					db = request.result;
+					console.log(dbName + " database was successfully created.");
+					getAll(storeName);
+				};
+				request.onupgradeneeded = function(e) {
+					event.target.result.createObjectStore(storeName, {autoIncrement: true});
+					console.log(storeName + " was added as an object store.");
+				};
+			}
+			function deleteDB() {
+				console.log("\n[Delete DB]");
+				if (db) db.close();
+				indexedDB.deleteDatabase(dbName);
+				console.log(dbName + " was deleted.");
+			}
+			function insertDB(list, storeName) {
+				console.log("\n[Insert into DB]");
+				if (db) {
+					var transaction = db.transaction([storeName], "readwrite");
+					var store = transaction.objectStore(storeName);
+					var request = store.add(list);
+					transaction.oncomplete = function(e) {
+						console.log("The following was added to " + storeName);
+					};
+					request.onerror = function(e) {
+						console.log("Insert Failed:");
+					};
+				}
+				else {
+					console.log("Error: Open the DB first.");
+				}
+			}
+			function getAll(storeName) {
+				console.log("\n[Get All]");
+				if (db) {
+					var transaction = db.transaction([storeName], "readonly");
+					var store = transaction.objectStore(storeName);
+					var cursor = store.openCursor();
+					cursor.onsuccess = function(e) {
+						var results = e.target.result;
+						if (results) {
+							console.log("Key: " + results.key);
+							console.dir(results.value);
+								//$scope.todos = results.value;
+								splitReturn(results.value);
+								$scope.$apply();
+							results.continue();
+						}
+					};
+				}
+				else {
+					console.log("Error: Open the DB first.");
+				}
+			}
+			function splitReturn(result){
+				var todoArr = [];
+				var archArr = [];
+				for(var x = 0; x < result.length; x++){
+					if(result[x].status == "active"){
+						todoArr.push(angular.copy(result[x]));
+						if(result[x].id > $scope.counter){
+							$scope.counter = result[x].id;
+						}
+					}else if(result[x].status == "completed"){
+						archArr.push(angular.copy(result[x]));
+					}
+				}
+				$scope.todos = todoArr;
+				$scope.archive = archArr;
+			};
+			
+			
+			function deleteFromDB(storeName) {
+				console.log("\n[Delete from DB]");
+				if (db) {
+					var transaction = db.transaction([storeName], "readwrite");
+					var store = transaction.objectStore(storeName);
+					//var deleteInput = document.getElementById("deleteInput").value;
+					var request = store.delete(storeName);
+					request.onsuccess = function() {
+						console.log(storeName + " was deleted.");
+							insertDB($scope.todos.concat($scope.archive), "active");
+					}
+				}
+				else {
+					console.log("Error: Open the DB first.");
+				}
+			}
+		//-------------------
+		
+		$(document).ready(function(){
+			openDB("active");
+		});
+		
+		//-------------------
+		
+		
+		
+		//add an item to the todos list
+		$scope.addToList = function(todoElem){
+			todoElem.status = "active";
+			todoElem.idNum = $scope.counter;
+			$scope.counter += 1;
+			$scope.todos.push(angular.copy(todoElem));
+			document.getElementById("todoAdder").value = "";
+			deleteFromDB("active");
+		};
+		
+		$scope.setDeleted = function(todoElem){
+			var parentElem = $scope.searchArray(todoElem);
+			var currentId = $scope.searchArrayForId(todoElem);
+			$scope.todos.splice(currentId, 1);
+			parentElem.status = "deleted";
+			$scope.deleted.push(angular.copy(parentElem));
+			deleteFromDB("active");
+		};
+		
+		$scope.setCompleted = function(todoElem){
+			var parentElem = $scope.searchArray(todoElem);
+			parentElem.status = "completed";
+			$("#" + todoElem).css("text-decoration", "line-through");
+			
+		};
+		
+		$scope.searchArray = function(id){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].idNum == id){
+					return $scope.todos[x];
+				}
+			}
+			return -1;
+		};
+		
+		$scope.searchArrayForId = function(id){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].idNum == id){
+					return x;
+				}
+			}
+			return -1;
+		};
+		
+		$scope.archiveCompleted = function(){
+			for(var x = 0; x < $scope.todos.length; x++){
+				if($scope.todos[x].status == "completed"){
+					$scope.archive.push(angular.copy($scope.todos[x]));
+					$scope.todos.splice(x, 1);
+				}
+			}
+			deleteFromDB("active");
+		};
+		
+		$scope.clearList = function(){
+			if($scope.archiveOrActive == "Archive"){
+				for(var x = 0; x < $scope.todos.length; x++){
+					$scope.deleted.push(angular.copy($scope.todos[x]));
+					$scope.todos.splice(x, 1);
+				}
+			}else if($scope.archiveOrActive == "Active"){
+				for(var x = 0; x < $scope.archive.length; x++){
+					$scope.deleted.push(angular.copy($scope.archive[x]));
+					$scope.archive.splice(x, 1);
+				}
+			}
+			deleteFromDB("active");
+		};
+		
+		$scope.viewArchive = function(){
+			//switch to archived view
+			if($scope.archiveOrActive == "Archive"){
+				$scope.archiveOrActive = "Active";
+				$scope.toDelete = "Archived";
+				$scope.actVal = false;
+				$scope.archVal = true;
+				//openDB("archive");
+			//switch to active view
+			}else if($scope.archiveOrActive == "Active"){
+				$scope.archiveOrActive = "Archive";
+				$scope.toDelete = "Active";
+				$scope.actVal = true;
+				$scope.archVal = false;
+				//openDB("active");
+			}
+			//start indexedDB work
+			/*var DBOpenRequest = window.indexedDB.open("todolist", 4);
+			DBOpenRequest.onerror = function(event){
+				console.log("error loading database");
+			};
+			DBOpenRequest.onsuccess = function(event){
+				console.log("successfully opened DB");
+				db = DBOpenRequest.result;
+				
+				getData();
+				addData();
+			};
+			function addData(){
+				var newItem = [ { taskTitle: "todos", $scope.todos } ];
+			};
+			function getData(){
+				var transaction = db.transaction(["todolist"], "readwrite");
+				transaction.oncomplete = function(event){
+					console.log("Transaction complete");
+				};
+				transaction.onerror = function(event){
+					console.log("transaction error");
+				};
+				var objectStore = transaction.objectStore("todolist");
+				var objectStoreRequest = objectStore.get("todos");
+				objectStoreRequest.onsuccess = function(event){
+					console.log("record retrieved");
+					var myRecord = objectStoreRequest.result;
+				};
+			};*/
+			
+			/*$scope.items = '';
+			$scope.random = "this thing";
+			
+			var initCallback = function(){
+				getItems();
+			};
+
+			var dataStore = new IDBStore('todos', initCallback);
+
+			var getItemsSuccess = function(data){
+				$scope.items = data;
+				// http://jimhoskins.com/2012/12/17/angularjs-and-apply.html 
+				$scope.$apply(); 
+			};
+
+			var errorCallback = function(){
+				console.log('error'); 
+			};
+
+			var getItems = function(){
+				dataStore.getAll(getItemsSuccess,errorCallback);
+				console.log('getItems'); 
+			};
+
+			$scope.deleteItem = function(item){
+				dataStore.remove(item,getItems,errorCallback);
+			}
+
+			$scope.addItem = function(){
+				console.log("inserted active");
+				dataStore.put({'active' : $scope.todos},getItems,errorCallback); 
+				//$scope.itemname = ''; 
+			};*/
+			
+			
+		};
+	});
+	
+</script>
+
+<head>
+	<title>Things to do</title>
+</head>
+<body>
+	<div ng-app="todoApp" ng-controller="todoController">
+		<h3 class="pull-left padded shadowText"><b>Things to do</b><small> with AngularJS</small></h3>
+		
+		<!--<input type="button" ng-click="viewArchive()" value={{archiveOrActive}} class="btn btn-default pull-right box-shadow--4dp">
+		<input type="button" ng-click="clearList()" value="Delete everything" class="btn btn-default pull-right box-shadow--4dp">
+		<input type="button" ng-click="archiveCompleted()" value="Archive Completed" class="btn btn-default pull-right box-shadow--4dp">-->
+		<div class="dropdown pull-right">
+			<button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+			Options
+			<span class="caret"></span>
+			</button>
+			<ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+				<li><a href="" ng-click="viewArchive()">View {{archiveOrActive}}</a></li>
+				<li><a href="" ng-click="archiveCompleted()">Archive Completed</a></li>
+				<li role="separator" class="divider"></li>
+				<li><a href="" ng-click="clearList()">Delete {{toDelete}}</a></li>
+				<li role="separator" class="divider"></li>
+				<!--<li><a href="" ng-click="openDB()">Open Database</a></li>
+				<li><a href="" ng-click="addItem()">Insert All Active Records</a></li>-->
+				<li><a href="" ng-click="deleteDB()">Delete All Active Records</a></li>
+				<!--<li><a href="" ng-click="getAll()">Get All Active Records</a></li>-->
+			</ul>
+		</div>
+		</br></br></br>
+		<hr class="divider">
+		</br></br>
+		<div>
+			<input type="text" id="todoAdder" class="form-control" ng-model="todoElem.body" placeholder="Add a new to-do">
+			</br>
+			<input type="button" value="Add to the list!" class="btn btn-lg btn-primary center-block box-shadow--16dp" ng-click="addToList(todoElem)">
+			</br></br>
+			<div>
+				<p class="lead text-center">------ Your things to do! You have {{todos.length}} items left to complete! -------</p>
+				<div class="todoList">
+					<div ng-show="actVal">
+						<div class="center-block" ng-repeat="todoElems in todos">
+							<a href="" ng-click="setCompleted(todoElems.idNum)" class="glyphicon glyphicon-ok pull-left bi-padded"></a>
+							<a href="" ng-click="setDeleted(todoElems.idNum)" class="glyphicon glyphicon-remove pull-left bi-padded"></a>
+							<h4 id={{todoElems.idNum}} class="pull-left left-padded">{{todoElems.body}}</h4>
+							<br><br>
+						</div>
+					</div>
+					<div ng-show="archVal">
+						<div class="center-block" ng-repeat="archElems in archive">
+							<h4 id={{archElems.idNum}} class="pull-left left-padded">{{archElems.body}}</h4>
+							<br><br>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<hr class="divider">
+		<h4 class="text-center">Created by Mitchell Battles</h4>
+		<p class="text-center">This website uses AngularJS <small><i>by Google</i></small></p>
+	</div>
+</body>
+</html>

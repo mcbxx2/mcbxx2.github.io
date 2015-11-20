@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.min.js"></script>
+
+	<script>
+		var app = angular.module('Pazaak', []);
+	app.controller('PazaakController', function($scope) {
+		$scope.player_log_status = true;
+		$scope.displayCounter = 0;
+		$scope.playing = false;
+		$scope.turn = false;
+		$scope.cardList = {
+			cards: [
+				{value: "1", type: "none", sign: ""},
+				{value: "1", type: "plusMinus", sign: "+/-"},
+				{value: "1", type: "plus", sign: "+"},
+				{value: "1", type: "minus", sign: "-"},
+				{value: "2", type: "none", sign: ""},
+				{value: "2", type: "plusMinus", sign: "+/-"},
+				{value: "2", type: "plus", sign: "+"},
+				{value: "2", type: "minus", sign: "-"},
+				{value: "3", type: "none", sign: ""},
+				{value: "3", type: "plusMinus", sign: "+/-"},
+				{value: "3", type: "plus", sign: "+"},
+				{value: "3", type: "minus", sign: "-"},
+				{value: "4", type: "none", sign: ""},
+				{value: "4", type: "plusMinus", sign: "+/-"},
+				{value: "4", type: "plus", sign: "+"},
+				{value: "4", type: "minus", sign: "-"},
+				{value: "5", type: "none", sign: ""},
+				{value: "5", type: "plusMinus", sign: "+/-"},
+				{value: "5", type: "plus", sign: "+"},
+				{value: "5", type: "minus", sign: "-"},
+				{value: "6", type: "none", sign: ""},
+				{value: "6", type: "plusMinus", sign: "+/-"},
+				{value: "6", type: "plus", sign: "+"},
+				{value: "6", type: "minus", sign: "-"},
+				{value: "7", type: "none", sign: ""},
+				{value: "8", type: "none", sign: ""},
+				{value: "9", type: "none", sign: ""},
+				{value: "10", type: "none", sign: ""}
+			]
+		};
+		$scope.playerCards = {
+			cards: [
+				{value: "1", type: "plus", sign: "+", status: "active"},
+				{value: "2", type: "plus", sign: "+", status: "active"},
+				{value: "3", type: "plus", sign: "+", status: "active"},
+				{value: "4", type: "plus", sign: "+", status: "active"},
+				{value: "5", type: "plus", sign: "+", status: "active"}
+			]
+		};
+		$scope.playerCredits = 500;
+		$scope.playerTokens = 1000;
+		$scope.homeBool = true;
+		$scope.configBool = false;
+		$scope.purchaseBool = false;
+		$scope.playBool = false;
+		
+		$scope.home = function(){
+			console.log("Home");
+			$scope.homeBool = true;
+			$scope.configBool = false;
+			$scope.purchaseBool = false;
+			$scope.playBool = false;
+		}
+		$scope.config = function(){
+			console.log("Configure");
+			$scope.configBool = true;
+			$scope.homeBool = false;
+			$scope.purchaseBool = false;
+			$scope.playBool = false;
+		}
+		$scope.purchase = function(){
+			$scope.purchaseBool = true;
+			$scope.homeBool = false;
+			$scope.configBool = false;
+			$scope.playBool = false;
+		}
+		$scope.play = function(){
+			$scope.playBool = true;
+			$scope.homeBool = false;
+			$scope.configBool = false;
+			$scope.purchaseBool = false;
+		}
+		$scope.purchaseCard = function(value, classSign, sign){
+			//This function deals with Tokens to purchase cards
+			console.log(sign);
+			var cost = 0;
+			if(sign == "+"){
+				cost = 5;
+			}else if(sign == "-"){
+				cost = 10;
+			}else if(sign == "+/-"){
+				cost = 25;
+			}else{
+				alert("There is no need to purchase yellow cards!");
+				return;
+			}
+			
+			if($scope.playerTokens >= cost){
+				$scope.playerCards.cards.push({"value": value, "type": classSign, "sign": sign, "status": "inactive"});
+				$scope.playerTokens -= cost;
+				//$scope.$apply();
+				alert("Card Successfully Purchased");
+			}else{
+				alert("Unable to purchase card! You need more tokens to purchase this card, please play more games!");
+			}
+		}
+		$scope.typeNotNone = function(type){
+			if(type != "none"){
+				return true;
+			}else{
+				return false;
+			}
+		}
+		$scope.displayInBlocks = function(){
+			if($scope.displayCounter < 5){
+				++$scope.displayCounter;
+				return true;
+			}else{
+				$scope.displayCounter = 0;
+				return false;
+			}
+		}
+		$scope.runningTotal = 0;
+		$scope.computerTotal = 0;
+		$scope.round = 0;
+		$scope.plusOrMinus = false;
+		$scope.plusOrMinusCard = "";
+		$scope.hand = [];
+		
+		$scope.setPlaying = function(){
+			$scope.playing = true;
+			$scope.turn = true;
+			$scope.round = 1;
+			$scope.runningTotal = 0;
+			$scope.computerTotal = 0;
+			$scope.playerRoundWins = 0;
+			$scope.computerRoundWins = 0;
+			$scope.hand = [];
+			$scope.playerWin = false;
+			$scope.computerWin = false;
+			var handTotal = 0;
+			var usedCards = [];
+			var activeHand = [];
+			console.log($scope.playerCards);
+			for(var card in $scope.playerCards.cards){
+				card = $scope.playerCards.cards[card];
+				if(card.status == "active"){
+					//console.log("was active");
+					activeHand.push(card);
+				}
+			}
+			var max = activeHand.length;
+			var min = 1;
+			//console.log(activeHand);
+			while($scope.hand.length < 5){//handTotal <= 5){
+				var randomNumToUse = randomNumUnset(max, min) - 1;
+				//var currentCard = $scope.playerCards.cards[randomNumToUse];
+				var currentCard = activeHand[randomNumToUse];
+				var alreadyUsed = false;
+				//console.log("Showing the card we are looking to add : ");console.log(currentCard);
+				for(var card in $scope.hand){
+					//card = $scope.hand[card];
+					//console.log(card);
+					/*console.log("This is the card we are reviewing inside the hand");
+					console.log($scope.hand[card]);
+					console.log("--------------------------------------------------");*/
+					var cardit = $scope.hand[card];
+					//console.log(cardit);
+					//console.log(currentCard);			
+					if(cardit.value == currentCard.value && cardit.sign == currentCard.sign){
+						//console.log("That card was apparently");
+						alreadyUsed = true;
+						break;
+					}
+				}
+				//console.log(randomNumToUse);
+				if(alreadyUsed){  //was previously usedCards.indexOf...
+					//console.log("That card was already used so we are skipping it");
+					continue;
+				}else{
+					//console.log("That card was not used so we are pushing it into the hand");
+					var newCard = {"value": currentCard.value, "type": currentCard.type, "sign": currentCard.sign, "used": false}
+					//this doesnt work -- currentCard.used = false;
+					$scope.hand.push(newCard);
+				}
+			}
+		}
+		function setUsed(card){
+			card.used = true;
+			for(var cards in $scope.hand){
+				if(cards.value == card.value && cards.sign == card.sign){
+					cards = card;
+				}
+			}
+		}
+		$scope.hit = function(){
+			$scope.runningTotal += randomNum();
+			$scope.cardUsedThisTurn = false;
+			$scope.playerHold = false;
+			computerTurn();
+		}
+		function computerTurn(){
+			console.log("computer is taking its turn");
+			if($scope.runningTotal > 20 && $scope.playerHold){
+				computerHold();
+			}
+			if($scope.computerTotal < 20){
+				computerHit();
+			}else{
+				computerHold();
+			}
+		}
+		function computerHold(){
+			$scope.computerHold = true;
+			if($scope.playerHold){
+				endRound();
+			}
+		}
+		function computerHit(){
+			$scope.computerHold = false;
+			$scope.computerTotal += randomNum();
+		}
+		$scope.cardUsedThisTurn = false;
+		$scope.useCard = function(card, plusominus){
+			if(plusominus){
+				$scope.plusOrMinus = false;
+			}
+			
+			console.log(card);
+			if(!$scope.cardUsedThisTurn){
+				if(card.sign == "+"){
+					$scope.runningTotal = parseInt($scope.runningTotal) + parseInt(card.value);
+					card.used = true;
+					$scope.cardUsedThisTurn = true;
+				}else if(card.sign == "-"){
+					$scope.runningTotal = parseInt($scope.runningTotal) - parseInt(card.value);
+					card.used = true;
+					$scope.cardUsedThisTurn = true;
+				}else if(card.sign == "+/-"){
+					alert("Please select whether you would like to use plus or minus");
+					$scope.plusOrMinus = true;
+					$scope.plusOrMinusCard = card;
+					card.used = true;
+				}
+			}else{
+				alert("You cannot use two cards from your hand in one turn");
+			}
+		}
+		function logicChecker(){
+			var rt = 20 - parseInt($scope.runningTotal);
+			var ct = 20 - parseInt($scope.computerTotal);
+			if(rt == 0 && ct == 0){
+				return "neither";
+			}else if(rt == 0 && ct != 0){
+				return "player";
+			}else if(rt != 0 && ct == 0){
+				return "computer";
+			}else if(rt != 0 && ct != 0){
+				if(rt < 0 && ct < 0){
+					return "neither";
+				}else if(rt < 0 && ct > 0){
+					return "computer";
+				}else if(rt > 0 && ct < 0){
+					return "player";
+				}else if(rt > 0 && ct > 0){
+					if(rt > ct){
+						return "computer";
+					}else{
+						return "player";
+					}
+				}
+			}
+		}
+		function randomNum(){
+			//a random value from 1 to 10
+			var max = 10; var min = 1;
+			//return Math.random() * (max - min) + min;
+			 return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+		function randomNumUnset(max, min){
+			//return Math.random() * (max - min) + min;
+			 return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+		//this will activate the clicked card
+		$scope.activate = function(card){
+			var activeCount = 0;
+			for(var cardit in $scope.playerCards.cards){
+				if($scope.playerCards.cards[cardit].status == "active"){
+					++activeCount;
+				}
+			}
+			console.log(activeCount);
+			if(card.status == "active"){
+				//console.log("deactivating");
+				card.status = "inactive";
+			}else{
+				//console.log("checking count");
+				if(activeCount < 10){
+					//console.log("activating");
+					card.status = "active";
+				}else{
+					alert("You may only have 10 active cards in your hand at any given time, please deactive one to activate this card!");
+				}
+			}
+			
+		}
+		//The computers default hand
+		$scope.computerHand = [
+				{value: "1", type: "plus", sign: "+", used: false},
+				{value: "2", type: "plus", sign: "+", status: false},
+				{value: "3", type: "plus", sign: "+", status: false},
+				{value: "4", type: "plus", sign: "+", status: false},
+				{value: "5", type: "plus", sign: "+", status: false}
+		];
+		
+		//if the player is holding
+		$scope.playerHold = false;
+		//if the computer is holding
+		$scope.computerHold = false;
+		//hold function, sets the player to be hold position, ends the round if the computer is also holding
+		$scope.hold = function(){
+			$scope.playerHold = true;
+			$scope.cardUsedThisTurn = false;
+			if($scope.computerHold){
+				endRound();
+			}else{
+				computerTurn();
+			}
+		}
+		//ends the round - tests for a winner and acts accordingly
+		function endRound(){
+			var winner = logicChecker();
+			if(winner == "player"){
+				++$scope.playerRoundWins;
+				alert("The player won the round!");
+			}else if(winner == "computer"){
+				++$scope.computerRoundWins;
+				alert("The computer won the round...");
+			}else if(winner == "neither"){
+				++$scope.roundDraws;
+				alert("The round was a draw");
+			}
+			//tests to see if the player or the computer has won three rounds yet
+			if($scope.playerRoundWins == 3){
+				$scope.playerWin = true;
+				playerWin("player");
+				$scope.playing = false;	
+			}else if($scope.computerRoundWins == 3){
+				$scope.computerWin = true;
+				playerWin("computer");
+				$scope.playing = false;
+			}else{
+				++$scope.round;
+				startRound();
+			}
+		}
+		//starts a new round
+		function startRound(){
+			$scope.cardUsedThisTurn = false;
+			$scope.runningTotal = 0;
+			$scope.computerTotal = 0;
+			$scope.computerHold = false;
+			$scope.playerHold = false;
+			$scope.turn = true;
+		}
+		//sends a winner message that a specific player won
+		function playerWin(player){
+			console.log(player + " Won!");
+			if(player == "player"){
+				$scope.credits = parseInt($scope.credits) + parseInt(250);
+			}
+		}
+		//the variables for a player or a computer having won
+		$scope.playerWin = false;
+		$scope.computerWin = false;
+		//the number of rounds won by each player and the number of draws
+		$scope.playerRoundWins = 0;
+		$scope.computerRoundWins = 0;
+		$scope.roundDraws = 0;
+		
+		//end of the controller
+		});
+	</script>
+	<style>
+		.navigation-bar{
+			background-color: grey;
+			height: 120px;
+		}
+		.small-icon{
+			height: 25px;
+			width: 25px;
+		}
+		.card{
+			height: 240px;
+			width: 160px;
+			border: 1px solid black;
+			background-color: lightGray;
+		}
+		.innerCard{
+			height: 120px;
+			widthL 80px;
+			padding: 40px;
+			margin: 40px;
+		}
+		.minus{
+			background-color: red;
+		}
+		.plus{
+			background-color: blue;
+		}
+		.plusMinus{
+			background-color: purple;
+		}
+		.none{
+			background-color: yellow;
+		}
+	</style>
+	<head>
+		<title>Play Pazaak!</title>
+	</head>
+	<body ng-app="Pazaak" ng-controller="PazaakController">
+		<div class="navigation-bar">
+			<div class="header-title pull-left">
+				<h2>Pazaak</h2>
+			</div>
+			<div class="header-icon pull-right">
+			</div>
+			<div class="player-status pull-right">
+				<div class="remaining-credits pull-right">
+					<label><img src="http://stormfrontx.cloudapp.net/pazaak/icons/credit.png" class="pull-right small-icon" alt="galactic-credit"></img>Remaining Galactic Credits {{playerCredits}} </label>
+				</div>
+				<br>
+				<div class="card-tokens pull-right">
+					<label><img src="http://stormfrontx.cloudapp.net/pazaak/icons/token.png" class="pull-right small-icon" alt="card-tokens"></img>Remaining Card Tokens {{playerTokens}} </label>
+				</div>
+				<br>
+				<div ng-show="player_log_status" class="pull-right">
+					<button class="btn btn-success btn-xs pull-right">Login</button>
+				</div>
+				<div ng-hide="player_log_status" class="pull-right">
+					<button class="btn btn-success btn-xs pull-right">Logout</button>
+				</div>
+			</div>
+		</div>
+		<br>
+		<br>
+		<br>
+		<div id="stage">
+<!--Home Block-->
+			<div ng-if="homeBool">
+				<button ng-click="play()" class="btn btn-primary btn-lg center-block">Play Pazaak!</button>
+				<br>
+				<button ng-click="config()" class="btn btn-default center-block">Configure your deck</button>
+				<br>
+				<button ng-click="purchase()" class="btn btn-default center-block">Buy new cards</button>
+				<br>
+				<a href="http://starwars.wikia.com/wiki/Pazaak" class="center-block">View Rules</a>
+			</div>
+<!--End Home Block-->
+<!--Config Block-->
+			<div ng-if="configBool">
+				<div class="pull-right">
+					<div class="btn-group btn-group-sm" role="group" aria-label="optionsGroup">
+						<button ng-click="home()" class="btn btn-primary btn-sm">View the home page</button>
+						<button ng-click="play()" class="btn btn-default btn-sm">Play the game!</button>
+						<button ng-click="purchase()" class="btn btn-default btn-sm">Buy new cards</button>
+					</div>
+				</div>
+				<p>You can view your cards here! You can have up to 10 cards active in your deck</p>
+				<div class="center-block">
+					<div ng-repeat="cards in playerCards.cards" class="center-block">
+						<span>
+							<div ng-if="cards.status == 'active'">
+								<p class="glyphicon glyphicon-ok pull-right" ng-click="cards.active = 'inactive'"></p>
+							</div>
+							<div ng-if="cards.status == 'inactive'">
+								<p class="glyphicon glyphicon-remove pull-right" ng-click="cards.active = 'active'"></p>
+							</div>
+							<div class="card center-block" ng-click="activate(cards)">
+								<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+								<div class="innerCard {{cards.type}}"></div>
+							</div>
+						</span>
+					</div>
+				</div>
+			</div>
+<!--End Config Block-->
+<!--Play Block-->
+			<div ng-if="playBool">
+				<div class="pull-right">
+					<div class="btn-group btn-group-sm" role="group" aria-label="optionsGroup">
+						<button ng-click="home()" class="btn btn-primary btn-sm">View the home page</button>
+						<button ng-click="config()" class="btn btn-default btn-sm">Configure your deck</button>
+						<button ng-click="purchase()" class="btn btn-default btn-sm">Buy new cards</button>
+					</div>
+				</div>
+				<p>This is where you will play the game. Five cards will be selected from your list of Active cards. To change this list please configure your deck.</p>
+				<div ng-if="!playing">
+					<div class="center-block">
+						<button class="btn btn-danger" ng-click="setPlaying()">Play against the Computer</button>
+					</div>
+				</div>
+				<div ng-if="playing">
+					<div>
+						<p class="center-block">Your current count is {{runningTotal}}</p><br>
+						<p class="center-block">The computer's count is {{computerTotal}}</p><br>
+						<p class="center-block">Your current number of rounds won is {{playerRoundWins}}</p><br>
+						<p class="center-block">The computer's current number of rounds won is {{computerRoundWins}}</p>
+						<div ng-if="plusOrMinus"><button ng-click="useCard({'value': plusOrMinusCard.value, 'type': plusOrMinusCard.type,'sign': '+'}, true)">Use [ + ]</button><button ng-click="useCard({'value': plusOrMinusCard.value, 'type': plusOr.type, 'sign': '-'}, true)">Use [ - ]</button></div>
+						<p ng-if="turn">It is your turn!</p>
+						<p ng-if="!turn">The Computer is making its turn!</p>
+						<div>
+							<div ng-if="turn">
+								<button class="btn btn-warning" ng-click="hit()">Hit Me</button>
+								<button class="btn btn-info" ng-click="hold()">Hold!</button>
+							</div>
+							<!-- Player Cards -->
+							<div ng-repeat="cards in hand" class="pull-left">
+								<div ng-if="!cards.used" class="card pull-left" ng-click="useCard(cards, false)"><!--ng-click="useCard(cards.value, cards.type, cards.sign, 'none', cards.used)">-->
+									<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+									<div class="innerCard {{cards.type}}"></div>
+								</div>
+								<div ng-if="cards.used" class="card pull-left">
+									<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+									<!--<div class="innerCard {{cards.type}}"></div>-->
+								</div>
+							</div>
+							<!--Computers cards-->
+							<div ng-repeat="cards in computerHand" class="pull-right">
+								<div ng-if="!cards.used" class="card pull-right">
+									<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+									<div class="innerCard {{cards.type}}"></div>
+								</div>
+								<div ng-if="cards.used" class="card pull-right">
+									<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+									<!--<div class="innerCard {{cards.type}}"></div>-->
+								</div>
+							</div>
+							<!--End hands-->
+						</div>
+					</div>
+				</div>
+				<div ng-if="playerWin">
+					<h2>The player won!</h2>
+				</div>
+				<div ng-if="computerWin">
+					<h2>The Computer won :[...</h2>
+				</div>
+			</div>
+<!--End Play Block-->
+<!--Purchase block -->
+			<div ng-if="purchaseBool">
+				<div class="pull-right">
+					<div class="btn-group btn-group-sm" role="group" aria-label="optionsGroup">
+						<button ng-click="home()" class="btn btn-primary btn-sm">View the home page</button>
+						<button ng-click="config()" class="btn btn-default btn-sm">Configure your deck</button>
+						<button ng-click="play()" class="btn btn-default btn-sm">Play the game!</button>
+					</div>
+				</div>
+				<p>This is where you will purchase new cards</p>
+				<p class="">Yellow Cards cannot be purchased, they are the base cards. Blue cards cost 5 tokens : Red Cards cost 10 tokens : Purple cards cost 25 tokens</p>
+				<div class="">
+				<span>
+					<div ng-repeat="cards in cardList.cards" class="">
+						<!--<div ng-if="typeNotNone(cards.type)">-->
+						<div ng-if="cards.type != 'none'">
+							<div class="card" ng-click="purchaseCard(cards.value, cards.type, cards.sign)">
+								<h3><b>{{cards.sign}} {{cards.value}}</b></h3>
+								<div class="innerCard {{cards.type}}"></div>
+							</div>
+						</div>
+						<!--</div>-->
+					</div>
+				</span>
+				</div>
+<!--End Purchase-->
+			</div>
+	</body>
+</html>

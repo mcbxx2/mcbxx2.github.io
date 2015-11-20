@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>AJAX-Based Navigation</title>
+        <meta charset="utf-8">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+        <style>
+            @media (min-width: 768px) {
+                .container {
+                    max-width: 730px;
+                }
+            }
+            .header {
+                margin-top: 30px;
+                border-bottom: 1px solid #EEE;
+            }
+            .header h2 {
+                margin-top: 0;
+                line-height: 40px;
+            }
+            #stage {
+                padding: 15px;
+            }
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+        <script>
+            function stageContent(content) {
+                $("#stage").html(content);
+            }
+            
+			//on document load
+			$(document).ready(function(){
+				//get the current url
+				var currentURL = window.location.href;
+				//split the url into an array
+				var URLArray = currentURL.split('/');
+				//grab out the last element from the url - which will always be our history extension
+				var historyExtension = URLArray[4];
+				var poundSign = "#";
+				//concatenate the pound sign onto the history extension
+				var historyExtensionIDNC = poundSign.concat(historyExtension);
+				//insure case insensitivity
+				var historyExtensionID = historyExtensionIDNC.toLowerCase();
+				
+				if(historyExtensionID != "#" && $(historyExtensionID).is("a")){
+					//if the concatted extension is not just the pound sign and the element selected with that id is an anchor tag then make the parent of the anchor tag active
+					$(historyExtensionID).parents("li").addClass("active");
+					document.title = $(historyExtensionID).parents("li").text();
+				}else if(historyExtensionID == "#"){
+					//else if the concatted extension is just the pound sign then we are on the home page, make the home page li active
+					$("#home").parents("li").addClass("active");
+					document.title = $("#home").parents("li").text();
+				}else{
+					//else if the user puts in a bogus history extension redirect them to the plain page so they dont get any junk saved in their history
+					//not the most elegant solution but it is the most functional I can come up with right now.
+					window.location.href = "http://stormfrontx.cloudapp.net/historynav/";
+				}
+				
+				//var currentLi = document.getElementsByClassName("active");
+				//document.title = document.getElementsByClassName("active").parents("li").text();
+				//document.title = $(".active").parents("li").text();
+				
+				
+				
+			});
+            
+            function evaluatePath(path) {
+				//path insensitivity
+				var lowerPath = path.toLowerCase();
+				
+                // Clean up the endpoint - with case insensitivity
+                var request = lowerPath.split("/").pop();
+                
+                // Request the content
+                if (request == "about") {
+                    $.get("about.html", stageContent);
+                }
+                else if (request == "contact") {
+                    $.get("contact.html", stageContent);
+                }
+                else {
+                    $.get("home.html", stageContent);
+                }
+            }
+            
+            
+            $(function(){
+                // Evaluate path to start
+                evaluatePath(location.pathname);
+                
+                // When a link is clicked...
+                $("nav[role=navigation] a").click(function(e) {
+                    // Don't follow its href
+                    e.preventDefault();
+                    
+                    // Instead remember its href
+                    var request = $(this).attr("href");
+                    
+                    // And add it to the browser's history
+                    history.pushState(null, null, request);
+                    
+					$("nav[role=navigation] li").removeClass("active");
+					$(this).parents('li').addClass("active");
+					
+					document.title = $(this).parents("li").text();
+					//console.log($(this).parents("li").text());
+					//$("nav[role=navigation] li").addClass("active");
+					
+                    // Then evaluate it
+                    evaluatePath(request);
+                    
+                });
+                
+                
+                // If the back button is pressed...
+                $(window).on("popstate", function() {
+                    evaluatePath(location.pathname);
+                });
+                
+                
+            });
+			
+			
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            
+            <!-- HEADER -->
+            <div class="header clearfix">
+                <nav role="navigation">
+                    <ul class="nav nav-pills pull-right">
+                        <li role="presentation"><a id="home" href="./">Home</a></li>
+                        <li role="presentation"><a id="about" href="./about">About</a></li>
+                        <li role="presentation"><a id="contact" href="./contact">Contact</a></li>
+                    </ul>
+                </nav>
+                <h2 class="text-muted">AJAX Navigation</h2>
+            </div>
+            
+            <!-- STAGE -->
+            <div id="stage"></div>
+            
+        </div>
+    </body>
+</html>

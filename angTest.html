@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+    <title>Angular ToDo MVC</title>
+   <!-- <script src="js/angular.js"></script>
+    <script src="js/controller/controller.js"></script>-->
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.7/angular.min.js"></script>
+  <script>
+  	var app = angular.module('ToDoApp', []);
+	app.controller('ToDoList', function($scope) {
+    	$scope.task = "cool";
+    });
+  </script>
+  </head>
+  <body ng-app="ToDoApp" ng-controller="ToDoList"><input type="text" ng-model="inputThing">
+    <p>{{inputThing}}</p>
+    
+    <p>{{task}}</p>
+  
+
+</body>
+</html>
